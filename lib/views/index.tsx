@@ -154,7 +154,7 @@ const Index: FC<{ debugQuery: string | undefined }> = ({ debugQuery }) => {
                     .
                 </p>
                 <div className="font-bold space-x-4 text-sm">
-                    <a target="_blank" href="https://docs.rsshub.app">
+                    <a target="_blank" href="https://rsshub-docs.920925.xyz">
                         <button className="text-white bg-[#F5712C] hover:bg-[#DD4A15] py-2 px-4 rounded-full transition-colors">Home</button>
                     </a>
                     <a target="_blank" href="https://folo.is/">
