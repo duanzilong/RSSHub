@@ -3,7 +3,9 @@ import { destr } from 'destr';
 import { raw } from 'hono/html';
 import { renderToString } from 'hono/jsx/dom/server';
 import type { JSX } from 'hono/jsx/jsx-runtime';
+import pMap from 'p-map';
 
+import { renderYoutube } from '@/routes/youtube/utils';
 import type { DataItem, Route } from '@/types';
 import cache from '@/utils/cache';
 import ofetch from '@/utils/ofetch';
@@ -45,7 +47,7 @@ const handler = async (ctx) => {
             .map((item) => {
                 const $item = $(item);
                 return {
-                    title: $item.text().trim(),
+                    title: $item.text(),
                     link: new URL($item.attr('href')!, currentUrl).href,
                 };
             }),
@@ -54,7 +56,7 @@ const handler = async (ctx) => {
             .map((item) => {
                 const $item = $(item);
                 return {
-                    title: $item.text().trim(),
+                    title: $item.text(),
                     link: new URL($item.attr('href')!, currentUrl).href,
                 };
             }),
@@ -65,8 +67,9 @@ const handler = async (ctx) => {
         }))
         .filter((item) => !item.slug.startsWith('/campaign'));
 
-    const items = await Promise.all(
-        list.map((item) =>
+    const items = await pMap(
+        list,
+        (item) =>
             cache.tryGet(item.link, async () => {
                 const resp = await ofetch(`https://api.esquirehk.com${item.slug}`);
                 const response = destr<Article>(resp);
@@ -81,8 +84,8 @@ const handler = async (ctx) => {
                 item.category = [...response.tags.topic.map((tag) => tag.name), ...response.tags.normal.map((tag) => tag.name)];
 
                 return item;
-            })
-        )
+            }),
+        { concurrency: 3 }
     );
 
     return {
@@ -110,19 +113,7 @@ const renderSubpages = (subpages): string =>
                     }
                     case 'video_block': {
                         const videoId = page.source?.split('&', 1)[0];
-                        blocks.push(
-                            <iframe
-                                key={`video-${index}`}
-                                id="ytplayer"
-                                type="text/html"
-                                width="640"
-                                height="360"
-                                src={`https://www.youtube-nocookie.com/embed/${videoId}`}
-                                frameborder="0"
-                                allowfullscreen
-                                referrerpolicy="strict-origin-when-cross-origin"
-                            ></iframe>
-                        );
+                        blocks.push(<div key={`video-${index}`}>{raw(renderYoutube(true, videoId, undefined, undefined))}</div>);
 
                         break;
                     }
@@ -151,7 +142,7 @@ const renderSubpages = (subpages): string =>
                         break;
 
                     default:
-                        blocks.push(<span key={`unknown-${index}`}>UNHANDLED PAGE TYPE: {page.type}</span>);
+                        break;
                 }
 
                 if (page.title) {

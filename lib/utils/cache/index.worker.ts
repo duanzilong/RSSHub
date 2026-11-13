@@ -6,7 +6,7 @@ import { config } from '@/config';
 import type CacheModule from './base';
 import { stringify } from './base';
 import http from './http';
-import kv, { getKVNamespace } from './kv';
+import kv, { getKVNamespace, toKVTtl } from './kv';
 
 const cacheModule: CacheModule = config.cache.type === 'http' ? http : kv;
 
@@ -55,7 +55,7 @@ const globalCache: GlobalCache = {
         }
         const stored = stringify(value);
         if (key) {
-            await getKVNamespace()!.put(key, stored, { expirationTtl: maxAge });
+            await getKVNamespace()!.put(key, stored, { expirationTtl: toKVTtl(maxAge) });
         }
     },
     claim: async (key, maxAge) => {
@@ -89,21 +89,16 @@ export default {
             throw new TypeError('Cache key must be a string');
         }
         if (cacheModule.status.available) {
-            let v = await cacheModule.get(key, refresh);
+            const v = await cacheModule.get(key, refresh);
             if (v) {
-                let parsed;
                 try {
-                    parsed = JSON.parse(v);
+                    return JSON.parse(v) as T;
                 } catch {
-                    parsed = null;
+                    return v as T;
                 }
-                if (parsed) {
-                    v = parsed;
-                }
-                return v as T;
             }
             const value = await getValueFunc();
-            await cacheModule.set(key, value, maxAge);
+            await cacheModule.set(key, JSON.stringify(value), maxAge);
             return value;
         }
         // Fallback: always call getValueFunc if the cache is not available.
